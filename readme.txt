@@ -8,9 +8,11 @@ Setting up Tomcat Azure Session Manager:
 ========================================
 Tomcat 6, 7 
 ------------
-	1 Copy the tomcat-azure-session-manager[version].jar from the dist folder to [CATALINA_HOME]/lib
+	1 Copy the tomcat-azure-session-manager[version].jar from the dist folder to 
+          [CATALINA_HOME]/lib
 	2 Copy all of the jar files from lib/deploy folder to [CATALINA_HOME]/lib 
-	3 Configure the following attributes in the Tomcat instance context.xml file, <Manager> element
+	3 Configure the following attributes in the Tomcat instance context.xml file,
+          <Manager> element
 	
 	Attribute           Description
 	className           must be set to uk.co.atomus.session.manager.AtomusManager
@@ -30,11 +32,13 @@ Tomcat 6, 7
 
 Tomcat 5
 --------
-	1 Please refer the "building instructions" section for building Tomcat-5 specific manager jar file
+	1 Please refer the "building instructions" section for building Tomcat-5 specific
+          manager jar file
 	2 Copy the manager jar to [CATALINA_HOME]/server/lib
-	2 Copy commons-logging and log4j jar files from lib/deploy folder to [CATALINA_HOME]/common/lib 
-	3 Copy all of the other jar files from the deploy folder to [CATALINA_HOME]/server/lib
-	4 Configuration is as per step '3' in the section above
+	3 Copy commons-logging and log4j jar files from lib/deploy folder to
+          [CATALINA_HOME]/common/lib 
+	4 Copy all of the other jar files from the deploy folder to [CATALINA_HOME]/server/lib
+	5 Configuration is as per step '3' in the section above
 
 Building instructions
 =====================
