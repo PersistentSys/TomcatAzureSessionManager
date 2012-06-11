@@ -20,8 +20,8 @@ import java.io.ObjectInputStream;
 import org.apache.catalina.Session;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.soyatec.windows.azure.error.StorageException;
-import org.soyatec.windows.azure.table.TableStorageEntity;
+
+import com.microsoft.windowsazure.services.core.storage.StorageException;
 
 import uk.co.atomus.session.TomcatSessionStorageEntity;
 import uk.co.atomus.session.service.dao.SessionDao;
@@ -82,15 +82,10 @@ public class SessionServiceImpl implements SessionService {
 		return partitionKey;
 	}
 
-	private TomcatSessionStorageEntity findInStorage(String id) {
-		try {
-			TableStorageEntity storageEntity = sessionDao.retrieveEntity(partitionKey, id);
-			return storageEntity == null ? null : (TomcatSessionStorageEntity) storageEntity;
-		} catch (StorageException e) {
-			log.error("Error loading from storage", e);
-			return null;
-		}
-	}
+    private TomcatSessionStorageEntity findInStorage(String id) {
+        TomcatSessionStorageEntity storageEntity = sessionDao.retrieveEntity(partitionKey, id);
+        return storageEntity == null ? null : (TomcatSessionStorageEntity) storageEntity;
+    }
 
 	@Override
 	public void saveSessionWithData(Session session) {
@@ -129,13 +124,13 @@ public class SessionServiceImpl implements SessionService {
 				}
 			} catch (Exception e) {
 				log.error("Error ocurred saving session. withData: " + withData, e);
-				throw new StorageException(e);
+				throw new RuntimeException("Error ocurred saving session. withData: " + withData,e);
 			}
 		}
 		log.debug("synch block off sessionId:" + session.getIdInternal() + " withData:" + withData);
 	}
 
-	private void createNewStorageEntity(Session session) throws IOException {
+	private void createNewStorageEntity(Session session) throws IOException, StorageException {
 		// do nothing, no point creating a new storage entity for a session that is invalid
 		if (session.isValid()) {
 			TomcatSessionStorageEntity storageEntity = new TomcatSessionStorageEntity(partitionKey, session.getIdInternal());

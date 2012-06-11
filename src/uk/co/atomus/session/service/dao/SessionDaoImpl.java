@@ -14,208 +14,271 @@
 
 package uk.co.atomus.session.service.dao;
 
-import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.soyatec.windows.azure.blob.RetryPolicies;
-import org.soyatec.windows.azure.blob.RetryPolicy;
-import org.soyatec.windows.azure.error.StorageException;
-import org.soyatec.windows.azure.table.AzureTable;
-import org.soyatec.windows.azure.table.TableStorage;
-import org.soyatec.windows.azure.table.TableStorageEntity;
-import org.soyatec.windows.azure.util.TimeSpan;
+
 
 import uk.co.atomus.session.TomcatSessionStorageEntity;
+
+import com.microsoft.windowsazure.services.core.ConfigurationException;
+import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
+import com.microsoft.windowsazure.services.core.storage.RetryLinearRetry;
+import com.microsoft.windowsazure.services.core.storage.StorageException;
+import com.microsoft.windowsazure.services.table.client.CloudTableClient;
+import com.microsoft.windowsazure.services.table.client.TableBatchOperation;
+import com.microsoft.windowsazure.services.table.client.TableConstants;
+import com.microsoft.windowsazure.services.table.client.TableOperation;
+import com.microsoft.windowsazure.services.table.client.TableQuery;
+import com.microsoft.windowsazure.services.table.client.TableQuery.QueryComparisons;
 
 /**
  * @author Simon Dingle and Chris Derham
  *
  */
 public class SessionDaoImpl implements SessionDao {
-	private final static Log log = LogFactory.getLog(SessionDaoImpl.class);
-	private static final String TABLE_NAMESPACE = "http://table.core.windows.net/";
-	private static final int DEFAULT_RETRY_POLICY_RETRIES = 10;
-	private static final int DEFAULT_RETRY_POLICY_INTERVAL_SECONDS = 1;
-	private String accountName;
-	private String accountKey;
-	private AzureTable azureTable;
-	private TableStorage tableStorage;
-	private String tableName;
-	private int retryPolicyRetries = DEFAULT_RETRY_POLICY_RETRIES;
-	private int retryPolicyIntervalSeconds = DEFAULT_RETRY_POLICY_INTERVAL_SECONDS;
+    private final static Log log = LogFactory.getLog(SessionDaoImpl.class);
+    private static final int DEFAULT_RETRY_POLICY_RETRIES = 7;
+    private static final int DEFAULT_RETRY_POLICY_INTERVAL_SECONDS = 1;
+    private String accountName;
+    private String accountKey;
+    private CloudTableClient tableClient;
+    private CloudStorageAccount cloudStorageAccount;
+    private String tableName;
+    private int retryPolicyRetries = DEFAULT_RETRY_POLICY_RETRIES;
+    private int retryPolicyIntervalSeconds = DEFAULT_RETRY_POLICY_INTERVAL_SECONDS;
 
-	@Override
-	public String getAccountName() {
-		return accountName;
-	}
+    @Override
+    public String getAccountName() {
+        return accountName;
+    }
 
-	@Override
-	public void setAccountName(String accountName) {
-		this.accountName = accountName;
-	}
+    @Override
+    public void setAccountName(String accountName) {
+        this.accountName = accountName;
+    }
 
-	@Override
-	public String getAccountKey() {
-		return accountKey;
-	}
+    @Override
+    public String getAccountKey() {
+        return accountKey;
+    }
 
-	@Override
-	public void setAccountKey(String accountKey) {
-		this.accountKey = accountKey;
-	}
+    @Override
+    public void setAccountKey(String accountKey) {
+        this.accountKey = accountKey;
+    }
 
-	@Override
-	public void setRetryPolicyRetries(int retryPolicyRetries) {
-		this.retryPolicyRetries = retryPolicyRetries;
-	}
+    @Override
+    public void setRetryPolicyRetries(int retryPolicyRetries) {
+        this.retryPolicyRetries = retryPolicyRetries;
+    }
 
-	@Override
-	public void setRetryPolicyInterval(int retryPolicyInterval) {
-		this.retryPolicyIntervalSeconds = retryPolicyInterval;
-	}
+    @Override
+    public void setRetryPolicyInterval(int retryPolicyInterval) {
+        this.retryPolicyIntervalSeconds = retryPolicyInterval;
+    }
 
-	@Override
-	public String getTableName() {
-		return tableName;
-	}
+    @Override
+    public String getTableName() {
+        return tableName;
+    }
 
-	@Override
-	public void setTableName(String tableName) {
-		this.tableName = tableName;
-	}
+    @Override
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
+    }
+    
+    // Set the number of retries that this client will make on its operation
+    // This Method will get the tableClient and also creates the table if not exists
+    private CloudTableClient getTableClient() {
+        if (tableClient == null) {
 
-	private AzureTable getAzureTable() {
-		if (azureTable == null) {
-			azureTable = getTableStorage().getAzureTable(tableName);
-			if (null == azureTable) {
-				throw new NullPointerException(String.format("TableStorage returned null AzureTable '%s'.", tableName));
-			}
+            tableClient = getCloudStorageAccount().createCloudTableClient();
+            tableClient.setRetryPolicyFactory(new RetryLinearRetry(retryPolicyIntervalSeconds,retryPolicyRetries));
+            
+            try {
+                tableClient.createTableIfNotExists(getTableName());
+            } catch (com.microsoft.windowsazure.services.core.storage.StorageException ste) {
+                ste.printStackTrace();
+                throw new RuntimeException(String.format("table '%s' was not created.", getTableName()), ste);
+            }
+        }
+        return tableClient;
+    }
+    
+    // Method to return the cloud storage account
+    private CloudStorageAccount getCloudStorageAccount() {
+        if (cloudStorageAccount == null) {
+            String storageConnectionString =
+                    "DefaultEndpointsProtocol=https;" +
+                    "AccountName="+ accountName + ";" + 
+                    "AccountKey=" + accountKey;
+            try {
+                cloudStorageAccount = CloudStorageAccount.parse(storageConnectionString);
+            } catch (InvalidKeyException e) {
+                e.printStackTrace();
+                throw new ConfigurationException(String.format("Invalid AccountKey '%s' specified", accountKey));
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+                throw new ConfigurationException(String.format("Invalid connection string URI '%s' specified", storageConnectionString));
+            }
+        }
+        return cloudStorageAccount;
+    }
 
-			azureTable.setRetryPolicy(getRetryPolicy());
+    @Override
+    public void removeAll(String partitionKey) {
+        List<TomcatSessionStorageEntity> entities = queryEntitiesByKeys(partitionKey, null);
+        deleteBatch(entities);
+    }
 
-			if (!azureTable.doesTableExist()) {
-				azureTable.createTable();
+    @Override
+    public int countEntities(String partitionKey, String rowKey) {
+        List<TomcatSessionStorageEntity> entities = queryEntitiesByKeys(partitionKey, rowKey);
+        return entities.size();
+    }
+    
+    /**
+     * sessionStorageEntity here is updated een for last accessed time
+     */
+    @Override
+    public void updateStorageEntity(TomcatSessionStorageEntity sessionStorageEntity) {
+        CloudTableClient tableClient = getTableClient();
 
-				if (!azureTable.doesTableExist()) {
-					throw new RuntimeException(String.format("Table '%s' was not created.", tableName));
-				}
-			}
-			azureTable.setModelClass(TomcatSessionStorageEntity.class);
-		}
-		return azureTable;
-	}
+        TableOperation updateOperation = TableOperation.insertOrMerge(sessionStorageEntity);
+        try {
+            tableClient.execute(tableName, updateOperation);
+        } catch (com.microsoft.windowsazure.services.core.storage.StorageException ue) {
+            ue.printStackTrace();
+            throw new RuntimeException(
+                    String.format(
+                            "Exception while updating the sessionEntity with SessionID '%s'in table storage",
+                            sessionStorageEntity.getSessionId()), ue);
+        }
+    }
 
-	private TableStorage getTableStorage() {
-		if (tableStorage == null) {
-			tableStorage = TableStorage.create(URI.create(TABLE_NAMESPACE), false, accountName, accountKey);
-		}
-		return tableStorage;
-	}
+    @Override
+    public void insertStorageEntity(TomcatSessionStorageEntity sessionStorageEntity) throws StorageException {
+        TableOperation insertOperation = TableOperation.insert(sessionStorageEntity);
+            getTableClient().execute(getTableName(), insertOperation);
+    }
+    
+    /* (non-Javadoc)
+     * @see uk.co.atomus.session.service.dao.SessionDao#queryEntitiesByKeys(java.lang.String, java.lang.String)
+     */
+    @Override
+    public List<TomcatSessionStorageEntity> queryEntitiesByKeys(String partitionKey, String rowKey) {
+        
+        List<TomcatSessionStorageEntity> storageEntities = new ArrayList<TomcatSessionStorageEntity>();
+        CloudTableClient tableClient = getTableClient();
+        
+        if (null == partitionKey || partitionKey.isEmpty()) {
+            // Get list of all Entities in Table 
+            TableQuery<TomcatSessionStorageEntity> getAllQuery = TableQuery.from(tableName, TomcatSessionStorageEntity.class);
+            for(TomcatSessionStorageEntity entity: tableClient.execute(getAllQuery)) {
+                storageEntities.add(entity);
+            }
+        } else if (null != partitionKey && !partitionKey.isEmpty() && (null == rowKey || rowKey.isEmpty())) {
+            // Get list based on Partition Key 
+            String partitionFilter =
+                TableQuery.generateFilterCondition( TableConstants.PARTITION_KEY, QueryComparisons.EQUAL, partitionKey);
+            
+            TableQuery<TomcatSessionStorageEntity> getByPartitionQuery =
+                    TableQuery.from(tableName, TomcatSessionStorageEntity.class).where(partitionFilter);
+            
+            for(TomcatSessionStorageEntity entity: tableClient.execute(getByPartitionQuery)) {
+                storageEntities.add(entity);
+            }
+        } else if (null != partitionKey && !partitionKey.isEmpty() && null != rowKey && !rowKey.isEmpty()) {
+         // Get list based on partition Key & Row Key
+            TomcatSessionStorageEntity entity = retrieveEntity(partitionKey, rowKey);
+            if (null != entity ) {
+                storageEntities.add(entity);
+            }
+        } 
+        return storageEntities;
+    }
+    /**
+     * 
+     * returns null if not found
+     */
+    @Override
+    public TomcatSessionStorageEntity retrieveEntity(String partitionKey, String rowKey) {
+        TomcatSessionStorageEntity storageEntity = null;
+        TableOperation reterieveOperation = TableOperation.retrieve(partitionKey, rowKey, TomcatSessionStorageEntity.class);
+        try {
+            storageEntity = getTableClient().execute(tableName, reterieveOperation).getResultAsType();
+        } catch (com.microsoft.windowsazure.services.core.storage.StorageException e) {
+            e.printStackTrace();
+        }
+        return storageEntity;
+    }
+    
 
-	private RetryPolicy getRetryPolicy() {
-		return RetryPolicies.retryN(retryPolicyRetries, TimeSpan.fromSeconds(retryPolicyIntervalSeconds));
-	}
+    @Override
+    public void remove(String partitionKey, String rowKey) {
+        TomcatSessionStorageEntity entity = retrieveEntity(partitionKey, rowKey);
+        if (null == entity) {
+            log.debug("record not deleted as not found with rowKey " + rowKey);
+            return;
+        }
+        deleteTableEntity(entity);
+    }
 
-	@Override
-	public void removeAll(String partitionKey) {
-		List<TableStorageEntity> entities = queryEntitiesByKeys(partitionKey, null);
-		deleteBatch(entities);
-	}
+    private void deleteBatch(List<TomcatSessionStorageEntity> entities) {
+        if (entities.isEmpty()) {
+            return;
+        }
+        TableBatchOperation batchOperation = new TableBatchOperation();
 
-	@Override
-	public int countEntities(String partitionKey, String rowKey) {
-		List<TableStorageEntity> entities = queryEntitiesByKeys(partitionKey, rowKey);
-		return entities.size();
-	}
+        for (TomcatSessionStorageEntity entity : entities) {
+            log.debug("Added record with rowKey " + entity.getRowKey() + " to batch deletion");
+            batchOperation.delete(entity);
+        }
+        try {
+            getTableClient().execute(tableName, batchOperation);
+            log.debug("Batch of records deleted successfully");
+        } catch (com.microsoft.windowsazure.services.core.storage.StorageException e) {
+            e.printStackTrace();
+            log.debug("Error while deleting the batch of records");
+        }
+    }
 
-	@Override
-	public void updateStorageEntity(TomcatSessionStorageEntity storageEntity) {
-		AzureTable table = getAzureTable();
-		table.updateEntity(storageEntity);
-	}
+    private void deleteTableEntity(TomcatSessionStorageEntity entity) {
 
-	@Override
-	public void insertStorageEntity(TomcatSessionStorageEntity storageEntity) {
-		AzureTable table = getAzureTable();
-		table.insertEntity(storageEntity);
-	}
+        if (null != entity) {
+            log.debug("deleting record with rowKey" + entity.getRowKey());
+            // Create operation to delete the entity
+            TableOperation deleteEntity = TableOperation.delete(entity);
 
-	@Override
-	public List<TableStorageEntity> queryEntitiesByKeys(String partitionKey, String rowKey) {
-		List<TableStorageEntity> storageEntities = null;
-		AzureTable table = getAzureTable();
-		if (null == partitionKey || partitionKey.isEmpty()) {
-			/* Return list of all Entities in Table */
-			storageEntities = table.retrieveEntities();
-		} else if (null != partitionKey && !partitionKey.isEmpty() && (null == rowKey || rowKey.isEmpty())) {
-			storageEntities = table.retrieveEntitiesByKey(partitionKey, null);
-		} else if (null != partitionKey && !partitionKey.isEmpty() && null != rowKey && !rowKey.isEmpty()) {
-			storageEntities = table.retrieveEntitiesByKey(partitionKey, rowKey);
-		} else {
-			throw new StorageException(String.format("Unexpected condition: partitionKey '%s', rowKey '%s'",
-					partitionKey, rowKey));
-		}
+            // Call execute method on table client
+            try {
+                getTableClient().execute(tableName, deleteEntity);
+            } catch (com.microsoft.windowsazure.services.core.storage.StorageException e) {
+                e.printStackTrace();
+                throw new RuntimeException(
+                        String.format(
+                                "Exception while deleting the sessionEntity with SessionID '%s'in table storage",
+                                entity.getSessionId()));
+            }
+        } else // null
+            return;
+    }
 
-		if (null == storageEntities) {
-			return new ArrayList<TableStorageEntity>();
-		}
-
-		return storageEntities;
-	}
-
-	@Override
-	public TableStorageEntity retrieveEntity(String partitionKey, String rowKey) {
-		List<TableStorageEntity> entities = retrieveEntitiesByKey(partitionKey, rowKey);
-		return entities.isEmpty() ? null : entities.get(0);
-	}
-
-	@Override
-	public List<TableStorageEntity> retrieveEntitiesByKey(String partitionKey, String rowKey) {
-		AzureTable table = getAzureTable();
-		return table.retrieveEntitiesByKey(partitionKey, rowKey);
-	}
-
-	@Override
-	public void remove(String partitionKey, String rowKey) throws StorageException {
-		List<TableStorageEntity> entities = queryEntitiesByKeys(partitionKey, rowKey);
-		if (entities.isEmpty()) {
-			log.debug("record not deleted as not found with rowKey " + rowKey);
-			return;
-		}
-		deleteBatch(entities);
-	}
-
-	private void deleteBatch(List<TableStorageEntity> entities) {
-		if (entities.isEmpty()) {
-			return;
-		}
-		AzureTable table = getAzureTable();
-		table.startBatch();
-		for (TableStorageEntity entity : entities) {
-			deleteTableEntity(entity);
-		}
-		table.executeBatch();
-	}
-
-	private void deleteTableEntity(TableStorageEntity entity) {
-		log.debug("deleting record with rowKey" + entity.getRowKey());
-		getAzureTable().deleteEntity(entity);
-	}
-
-	@Override
-	public void removeExpired(String partitionKey) throws StorageException {
-		List<TableStorageEntity> entities = queryEntitiesByKeys(partitionKey, null);
-		log.debug("found " + entities.size() + " records");
-		for (TableStorageEntity entity : entities) {
-			TomcatSessionStorageEntity sessionStorageEntity = (TomcatSessionStorageEntity) entity;
-			if (sessionStorageEntity.hasExpired()) {
-				log.debug("found expired record with rowKey" + entity.getRowKey());
-				deleteTableEntity(sessionStorageEntity);
-			}
-		}
-	}
-
+    @Override
+    public void removeExpired(String partitionKey) {
+        List<TomcatSessionStorageEntity> entities = queryEntitiesByKeys(partitionKey, null);
+        log.debug("found " + entities.size() + " records");
+        for (TomcatSessionStorageEntity entity : entities) {
+            TomcatSessionStorageEntity sessionStorageEntity = (TomcatSessionStorageEntity) entity;
+            if (sessionStorageEntity.hasExpired()) {
+                log.debug("found expired record with rowKey" + entity.getRowKey());
+                deleteTableEntity(sessionStorageEntity);
+            }
+        }
+    }
 }

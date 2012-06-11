@@ -14,23 +14,30 @@
 
 package uk.co.atomus.session;
 
-import org.soyatec.windows.azure.table.TableStorageEntity;
 
+
+import com.microsoft.windowsazure.services.table.client.TableServiceEntity;
 /**
  * Represents the tomcat session entity to be persisted to Azure Table Storage
  *
  * @author Simon Dingle and Chris Derham
  */
-public class TomcatSessionStorageEntity extends TableStorageEntity {
+public class TomcatSessionStorageEntity extends TableServiceEntity {
 	private byte[] data;
 	private String sessionId;
 	private boolean validSession;
 	private int maxInactiveInterval;
 	private long lastAccessedTime;
 
-	public TomcatSessionStorageEntity(String partitionKey, String rowKey) {
-		super(partitionKey, rowKey);
-	}
+   public TomcatSessionStorageEntity(String partitionKey, String rowKey) {
+       super.setPartitionKey(partitionKey);
+       super.setRowKey(rowKey);
+   }
+
+   public TomcatSessionStorageEntity() {
+
+   }
+   
 
 	public boolean getValidSession() {
 		return validSession;
@@ -43,35 +50,42 @@ public class TomcatSessionStorageEntity extends TableStorageEntity {
 	public int getMaxInactiveInterval() {
 		return maxInactiveInterval;
 	}
+  
 
 	public void setMaxInactiveInterval(int maxInactiveInterval) {
 		this.maxInactiveInterval = maxInactiveInterval;
 	}
+   
 
 	public long getLastAccessedTime() {
 		return lastAccessedTime;
 	}
+   
 
 	public void setLastAccessedTime(long lastAccessedTime) {
 		this.lastAccessedTime = lastAccessedTime;
 	}
+   
 
 	public byte[] getData() {
 		return data;
 	}
+  
 
 	public void setData(byte[] data) {
 		this.data = data;
 	}
+   
 
 	public String getSessionId() {
 		return sessionId;
 	}
+   
 
 	public void setSessionId(String sessionId) {
 		this.sessionId = sessionId;
 	}
-
+  
 	public boolean hasExpired() {
 		if (maxInactiveInterval <=0) {
 			return false;

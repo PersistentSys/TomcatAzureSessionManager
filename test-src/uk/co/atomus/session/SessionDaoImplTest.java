@@ -19,14 +19,13 @@ import static org.junit.Assert.assertEquals;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.List;
 import java.util.Properties;
 
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.soyatec.windows.azure.table.TableStorageEntity;
 
+import uk.co.atomus.session.TomcatSessionStorageEntity;
 import uk.co.atomus.session.service.dao.SessionDaoImpl;
 
 /**
@@ -81,12 +80,11 @@ public class SessionDaoImplTest {
 
 	@Test
 	public void testRetrieveEntitiesByKey() throws Exception {
-		List<TableStorageEntity> entities = sessionDao.retrieveEntitiesByKey(partitionKey,
-				sessionStorageEntity.getRowKey());
-		Assert.assertNotNull(entities);
-		assertEquals(entities.size(), 1);
-		Assert.assertTrue(entities.get(0) instanceof TomcatSessionStorageEntity);
-		sessionStorageEntity = (TomcatSessionStorageEntity) entities.get(0);
+	    TomcatSessionStorageEntity entity = sessionDao.retrieveEntity(partitionKey,
+                sessionStorageEntity.getRowKey());
+		Assert.assertNotNull(entity);
+		Assert.assertTrue(entity instanceof TomcatSessionStorageEntity);
+		sessionStorageEntity = entity;
 	}
 
 	@Test

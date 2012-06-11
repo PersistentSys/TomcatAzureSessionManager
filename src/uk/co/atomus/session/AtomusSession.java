@@ -49,12 +49,12 @@ public class AtomusSession extends StandardSession {
 		requestSave();
 	}
 
-//	//@Override Tomcat v5.0.33 onwards
-//	public void setAttribute(String name, Object value, boolean notify) {
-//		log.debug("setAttribute name: " + name + " notify: " + notify);
-//		super.setAttribute(name, value, notify);
-//		requestSave();
-//	}
+	//@Override Tomcat v5.0.33 onwards
+	public void setAttribute(String name, Object value, boolean notify) {
+		log.debug("setAttribute name: " + name + " notify: " + notify);
+		super.setAttribute(name, value, notify);
+		requestSave();
+	}
 
 	private void requestSave() {
 		if (isValid() && !expiring) {

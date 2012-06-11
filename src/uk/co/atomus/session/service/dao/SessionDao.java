@@ -16,8 +16,8 @@ package uk.co.atomus.session.service.dao;
 
 import java.util.List;
 
-import org.soyatec.windows.azure.error.StorageException;
-import org.soyatec.windows.azure.table.TableStorageEntity;
+import com.microsoft.windowsazure.services.core.storage.StorageException;
+
 
 import uk.co.atomus.session.TomcatSessionStorageEntity;
 
@@ -27,13 +27,11 @@ public interface SessionDao {
 
 	int countEntities(String partitionKey, String rowKey);
 
-	TableStorageEntity retrieveEntity(String partitionKey, String rowKey);
+	TomcatSessionStorageEntity retrieveEntity(String partitionKey, String rowKey);
 
-	List<TableStorageEntity> retrieveEntitiesByKey(String partitionKey, String rowKey);
+	List<TomcatSessionStorageEntity> queryEntitiesByKeys(String partitionKey, String rowKey);
 
-	List<TableStorageEntity> queryEntitiesByKeys(String partitionKey, String rowKey);
-
-	void insertStorageEntity(TomcatSessionStorageEntity storageEntity);
+	void insertStorageEntity(TomcatSessionStorageEntity storageEntity) throws StorageException;
 
 	void updateStorageEntity(TomcatSessionStorageEntity storageEntity);
 
@@ -49,9 +47,9 @@ public interface SessionDao {
 
 	void setAccountKey(String accountKey);
 
-	void remove(String partitionKey, String rowKey) throws StorageException;
+	void remove(String partitionKey, String rowKey);
 
-	void removeExpired(String partitionKey) throws StorageException;
+	void removeExpired(String partitionKey);
 
 	void setRetryPolicyRetries(int retryPolicyRetries);
 

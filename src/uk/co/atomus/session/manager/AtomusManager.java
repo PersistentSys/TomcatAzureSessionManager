@@ -23,8 +23,6 @@ import org.apache.catalina.session.StandardManager;
 import org.apache.catalina.session.StandardSession;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.soyatec.windows.azure.error.StorageException;
-import org.soyatec.windows.azure.error.StorageServerException;
 
 import uk.co.atomus.session.AtomusSession;
 import uk.co.atomus.session.SessionStorageFacade;
@@ -189,11 +187,9 @@ public class AtomusManager extends StandardManager implements SessionStorageFaca
 	private void deleteExpiredSessions() {
 		try {
 			sessionService.deleteExpiredSessions();
-		} catch (StorageServerException e) {
+		} catch (Exception e) {
 			log.warn("Error deleting expired sessions", e);
-		} catch (StorageException e) {
-			log.error("Error deleting expired sessions", e);
-		}
+		} 
 	}
 
 	@Override
