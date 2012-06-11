@@ -1,7 +1,6 @@
 Tomcat Azure Session Manager
 ============================
-A Java web application is deployed as a role on Windows Azure. One role may have multiple instances, and each instance can have a session for a client. Windows Azure�s load balancer does not provide server affinity. 
-In other words, is not guaranteed that every request of a client will be routed to the same role instance. Instead, the load balancer distributes traffic across all instances irrespective of the request origin. 
+A Java web application is deployed as a role on Windows Azure. One role may have multiple instances, and each instance can have a session for a client. Windows Azure�s load balancer does not provide server affinity. In other words, is not guaranteed that every request of a client will be routed to the same role instance. Instead, the load balancer distributes traffic across all instances irrespective of the request origin. 
 There can be no session sharing across the role instances because each role instance manages its own session. To share the session across multiple instances of a role, Atomus has implemented custom session manager for Tomcat. This manager stores the sessions in Windows Azure table storage.
 
 The manager implementation provided by Atoms uses the Soyatec library to interact with the Windows Azure table storage to store and share sessions across multiple instances of a role. We forked the source code and contributed to the implementation to use the new Windows Azure SDK for Java instead of the Soyatec library to interact with table storage.
